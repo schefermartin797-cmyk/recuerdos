@@ -8,16 +8,26 @@ import {
 import { firebaseConfig } from "./firebase-config.js";
 
 const $ = (id) => document.getElementById(id);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+let auth, db;
+try {
+  if (String(firebaseConfig.apiKey).includes("PEGAR_AQUI")) {
+    throw new Error("Falta pegar la configuración de Firebase en firebase-config.js");
+  }
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (err) {
+  console.error(err);
+  $("loginError").textContent = "Error de configuración: " + err.message;
+}
+window.addEventListener("error", (e) => { $("loginError").textContent = "Error: " + e.message; });
 
 let unsubscribe = null;
 let pendingFiles = [];
 let currentPhoto = null;
 
 /* ---------- Login ---------- */
-onAuthStateChanged(auth, (user) => {
+if (auth) onAuthStateChanged(auth, (user) => {
   $("login").hidden = !!user;
   $("app").hidden = !user;
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
@@ -27,13 +37,15 @@ onAuthStateChanged(auth, (user) => {
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("loginError").textContent = "";
+  if (!auth) { $("loginError").textContent = "Firebase no está configurado todavía (revisá firebase-config.js)."; return; }
   try {
     await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value);
   } catch (err) {
-    $("loginError").textContent = "No pudimos entrar. Revisá el email y la contraseña.";
+    console.error(err);
+    $("loginError").textContent = "No pudimos entrar (" + (err.code || "error") + "). Revisá el email y la contraseña.";
   }
 });
-$("logout").addEventListener("click", () => signOut(auth));
+$("logout").addEventListener("click", () => auth && signOut(auth));
 
 /* ---------- Galería ---------- */
 function listenPhotos() {
