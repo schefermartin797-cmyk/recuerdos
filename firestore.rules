@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Solo las personas con sesión iniciada pueden ver, subir o borrar fotos.
+    match /photos/{photoId} {
+      allow read, delete: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.data is string
+                    && request.resource.data.data.size() < 950000;
+      allow update: if false;
+    }
+  }
+}
