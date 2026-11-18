@@ -3,77 +3,167 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#F3E9E1">
+  <meta name="theme-color" content="#1F1519">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Recuerdos">
-  <title>Recuerdos</title>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pic of the Day">
+  <title>Pic of the Day</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=DM+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <!-- Pantalla de ingreso -->
+  <!-- ============ LOGIN ============ -->
   <main id="login" class="screen">
-    <form id="loginForm" class="login-card">
-      <p class="hand">nuestros</p>
-      <h1>Recuerdos</h1>
-      <label for="email">Email</label>
-      <input id="email" type="email" autocomplete="username" required>
-      <label for="password">Contraseña</label>
-      <input id="password" type="password" autocomplete="current-password" required>
-      <p id="loginError" class="error" role="alert"></p>
-      <button type="submit" class="btn">Entrar</button>
-    </form>
+    <div class="login-bg" aria-hidden="true"></div>
+    <div class="login-shade" aria-hidden="true"></div>
+    <div class="login-wrap">
+      <header class="login-head">
+        <p class="hand">una foto por día</p>
+        <h1>Pic of<br><em>the Day</em></h1>
+      </header>
+      <form id="loginForm" class="login-card">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="username" placeholder="tu@email.com" required>
+        <label for="password">Contraseña</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+        <p id="loginError" class="error" role="alert"></p>
+        <button type="submit" class="btn primary block">Entrar</button>
+      </form>
+    </div>
   </main>
 
-  <!-- App -->
-  <main id="app" class="screen" hidden>
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
     <header class="top">
-      <div>
-        <p class="hand">nuestros</p>
-        <h1>Recuerdos</h1>
+      <div class="brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span class="brand-name">Pic of the Day</span>
       </div>
       <button id="logout" class="icon-btn" aria-label="Cerrar sesión" title="Cerrar sesión">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
       </button>
     </header>
 
-    <p id="empty" class="empty" hidden>Todavía no hay fotos.<br>Tocá “Añadir foto” para subir la primera.</p>
-    <section id="grid" class="grid" aria-label="Fotos"></section>
+    <!-- HOY -->
+    <section id="view-today" class="view" aria-label="Hoy">
+      <div class="today-head">
+        <p class="hand" id="todayWeekday"></p>
+        <h2 id="todayDate"></h2>
+      </div>
 
-    <label class="fab">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-      Añadir foto
-      <input id="picker" type="file" accept="image/*" multiple aria-label="Añadir foto">
-    </label>
-  </main>
+      <div class="chips">
+        <div class="chip"><b id="statStreak">0</b><span>días de racha</span></div>
+        <div class="chip"><b id="statDays">0</b><span>días este año</span></div>
+        <div class="chip"><b id="statTotal">0</b><span>fotos</span></div>
+      </div>
 
-  <!-- Hoja para subir -->
+      <div id="todayStage" class="stage"></div>
+
+      <div class="section-title">
+        <h3>Últimos días</h3>
+      </div>
+      <div id="recent" class="recent"></div>
+      <p id="empty" class="empty" hidden>Todavía no hay fotos.<br>Subí la primera del día. 💌</p>
+    </section>
+
+    <!-- CALENDARIO -->
+    <section id="view-calendar" class="view" aria-label="Calendario" hidden>
+      <div class="cal-head">
+        <button id="prevMonth" class="icon-btn" aria-label="Mes anterior">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="cal-title">
+          <h2 id="monthName"></h2>
+          <p id="monthCount" class="small"></p>
+        </div>
+        <button id="nextMonth" class="icon-btn" aria-label="Mes siguiente">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="dow" aria-hidden="true"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+      <div id="calGrid" class="cal-grid"></div>
+    </section>
+
+    <!-- RESUMEN -->
+    <section id="view-recap" class="view" aria-label="Resumen del año" hidden>
+      <div class="today-head">
+        <p class="hand">lo que va del año</p>
+        <h2 id="recapTitle">Resumen</h2>
+      </div>
+      <div class="recap-card">
+        <div class="recap-screen">
+          <canvas id="recapCanvas" width="540" height="960"></canvas>
+          <video id="recapVideo" playsinline controls hidden></video>
+          <div id="recapIdle" class="recap-idle">
+            <div class="play-ring"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></div>
+            <p id="recapIdleText">Tu año en fotos, en video</p>
+          </div>
+          <div id="recapBar" class="recap-bar" hidden><i id="recapBarFill"></i></div>
+        </div>
+      </div>
+      <p id="recapStatus" class="small center" role="status"></p>
+      <div class="row center">
+        <button id="recapPlay" class="btn primary" type="button">Crear video</button>
+        <a id="recapDownload" class="btn ghost" hidden download="pic-of-the-day.webm">Descargar</a>
+      </div>
+    </section>
+
+    <!-- Botón + -->
+    <button id="fab" class="fab" type="button" aria-label="Subir foto">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <input id="picker" type="file" accept="image/*" multiple hidden>
+
+    <!-- Barra inferior -->
+    <nav class="tabs" aria-label="Secciones">
+      <button class="tab active" data-view="today" type="button">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+        <span>Hoy</span>
+      </button>
+      <button class="tab" data-view="calendar" type="button">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+        <span>Calendario</span>
+      </button>
+      <button class="tab" data-view="recap" type="button">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9.5 5 2.5-5 2.5z" fill="currentColor"/></svg>
+        <span>Resumen</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ============ Subir ============ -->
   <dialog id="uploadSheet" class="sheet">
-    <h2>Subir fotos</h2>
+    <div class="grab" aria-hidden="true"></div>
+    <h2>Subir foto</h2>
     <div id="previews" class="previews"></div>
-    <label for="caption" class="small">Texto para las polaroids (opcional)</label>
+    <label for="dayInput" class="small">¿De qué día es?</label>
+    <input id="dayInput" type="date">
+    <label for="caption" class="small">Un texto cortito (opcional)</label>
     <input id="caption" type="text" maxlength="40" placeholder="Ej: Domingo de sol">
     <p id="uploadStatus" class="small" role="status"></p>
     <div class="row">
       <button id="cancelUpload" class="btn ghost" type="button">Cancelar</button>
-      <button id="confirmUpload" class="btn" type="button">Subir</button>
+      <button id="confirmUpload" class="btn primary" type="button">Subir</button>
     </div>
   </dialog>
 
-  <!-- Foto en grande -->
-  <dialog id="viewer" class="viewer">
-    <figure>
-      <img id="viewerImg" alt="">
-      <figcaption>
-        <span id="viewerCaption" class="hand big"></span>
-        <span id="viewerDate" class="small"></span>
-      </figcaption>
-    </figure>
+  <!-- ============ Día ============ -->
+  <dialog id="dayView" class="viewer">
+    <div class="viewer-top">
+      <div>
+        <p id="dayWeekday" class="hand"></p>
+        <h2 id="dayTitle"></h2>
+      </div>
+      <button id="closeDay" class="icon-btn" aria-label="Cerrar" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="dayPhotos" class="day-photos"></div>
     <div class="row">
-      <button id="deletePhoto" class="btn ghost danger" type="button">Eliminar</button>
-      <button id="closeViewer" class="btn" type="button">Cerrar</button>
+      <button id="addToDay" class="btn ghost" type="button">+ Agregar otra</button>
     </div>
   </dialog>
 
