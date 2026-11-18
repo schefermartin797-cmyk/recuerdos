@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 // Configuración de Firebase (la apiKey de web es pública; la seguridad la dan las reglas de Firestore y Authentication)
-=======
->>>>>>> b69d60d7cea86d42c5a2295abc377d357fff056f
 export const firebaseConfig = {
   apiKey: "AIzaSyD9V6tY8cP-hlvI2Plq0-LEgmT1IYoDuAA",
   authDomain: "amor-6e737.firebaseapp.com",
