@@ -1,11 +1,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+  getAuth, onAuthStateChanged, signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getFirestore, collection, addDoc, deleteDoc, doc, query, orderBy, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js";
+import { firebaseConfig } from "./firebase-config.js?v=5";
 
 const $ = (id) => document.getElementById(id);
 const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
@@ -19,9 +19,9 @@ try {
   db = getFirestore(app);
 } catch (err) {
   console.error(err);
-  $("loginError").textContent = "Error de configuración: " + err.message;
+  showAuthError("Error de configuración: " + err.message);
 }
-window.addEventListener("error", (e) => { $("loginError").textContent = "Error: " + e.message; });
+function showAuthError(msg) { const el = $("authError"); el.textContent = msg; el.hidden = false; }
 
 /* ---------- Estado ---------- */
 let unsubscribe = null;
@@ -45,26 +45,15 @@ function rotFor(key) {
   return (h % 7) - 3;
 }
 
-/* ---------- Login ---------- */
+/* ---------- Sesión (anónima, sin pantalla de login) ---------- */
 if (auth) onAuthStateChanged(auth, (user) => {
-  $("login").hidden = !!user;
-  $("app").hidden = !user;
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-  if (user) listenPhotos();
-});
-
-$("loginForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  $("loginError").textContent = "";
-  if (!auth) { $("loginError").textContent = "Firebase no está configurado (revisá firebase-config.js)."; return; }
-  try {
-    await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value);
-  } catch (err) {
+  if (user) { $("authError").hidden = true; listenPhotos(); }
+  else signInAnonymously(auth).catch((err) => {
     console.error(err);
-    $("loginError").textContent = "No pudimos entrar (" + (err.code || "error") + "). Revisá el email y la contraseña.";
-  }
+    showAuthError("No se pudo entrar (" + (err.code || "error") + "). Activá el acceso anónimo en Firebase > Authentication > Método de acceso.");
+  });
 });
-$("logout").addEventListener("click", () => auth && signOut(auth));
 
 /* ---------- Datos ---------- */
 function listenPhotos() {
@@ -461,3 +450,167 @@ function finish(run, chunks, mime) {
     recorder = null;
   } else done(null);
 }
+
+/* ---------- Días juntos, hitos y día especial ---------- */
+const START = { y: 2025, m: 11, d: 26 };               // 26 de diciembre de 2025 (m = 0..11)
+const MONTHSARY_DAY = START.d;
+const utc = (y, m, d) => Date.UTC(y, m, d);
+const dayDiff = (a, b) => Math.round((b - a) / 864e5);
+const plural = (n, s, p) => n + " " + (n === 1 ? s : p);
+
+// "Hoy" para este módulo. Para probar el diseño del 26: abrí la app con ?fecha=2026-12-26
+function themeToday() {
+  const f = new URLSearchParams(location.search).get("fecha");
+  const m = f && /^(\d{4})-(\d{2})-(\d{2})$/.exec(f);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+}
+function monthsaryDate(n) { return new Date(START.y, START.m + n, MONTHSARY_DAY); }
+function monthsLabel(n) {
+  if (n % 12 === 0) return n === 12 ? "1 año" : plural(n / 12, "año", "años");
+  return plural(n, "mes", "meses");
+}
+function fmtDate(d) { return d.getDate() + " de " + MESES[d.getMonth()] + " de " + d.getFullYear(); }
+
+function togetherInfo(now) {
+  const T = utc(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = dayDiff(utc(START.y, START.m, START.d), T);
+  let months = (now.getFullYear() - START.y) * 12 + (now.getMonth() - START.m) - (now.getDate() < MONTHSARY_DAY ? 1 : 0);
+  months = Math.max(0, months);
+  const last = monthsaryDate(months);
+  const extraDays = dayDiff(utc(last.getFullYear(), last.getMonth(), last.getDate()), T);
+  const isMonthsary = now.getDate() === MONTHSARY_DAY && months >= 1;
+  const nextN = isMonthsary ? months : months + 1;
+  const next = monthsaryDate(nextN);
+  const toNext = dayDiff(T, utc(next.getFullYear(), next.getMonth(), next.getDate()));
+  const roundDay = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000].includes(days) ? days : 0;
+  return { days, months, extraDays, isMonthsary, nextN, toNext, roundDay };
+}
+
+function renderTogether() {
+  const now = themeToday(), info = togetherInfo(now);
+  $("tDays").textContent = info.days;
+  let sub;
+  if (info.months === 0) sub = plural(info.extraDays, "día", "días") + " desde el primer día";
+  else sub = monthsLabel(info.months) + (info.extraDays ? " y " + plural(info.extraDays, "día", "días") : "");
+  $("tMonths").textContent = sub;
+  $("tNext").textContent = info.isMonthsary
+    ? "💗 Hoy cumplimos " + monthsLabel(info.nextN)
+    : "Próximo: " + monthsLabel(info.nextN) + " · " + (info.toNext === 1 ? "mañana" : "en " + info.toNext + " días");
+  applyParty(now, info);
+}
+
+/* Día especial */
+function applyParty(now, info) {
+  const special = info.isMonthsary || info.roundDay;
+  document.body.classList.toggle("fiesta", !!special);
+  $("fiestaBanner").hidden = !special;
+  const hearts = $("hearts");
+  if (!special) { hearts.textContent = ""; return; }
+  let big, bigHtml, text;
+  if (info.isMonthsary) {
+    const yearly = info.nextN % 12 === 0;
+    big = yearly ? "¡" + monthsLabel(info.nextN) + " juntos!" : "¡Cumplimos " + monthsLabel(info.nextN) + "!";
+    text = yearly ? "Un año más a tu lado. Gracias por cada día. 💗" : "Un mes más juntos. Gracias por cada día, te amo. 💗";
+    bigHtml = yearly ? (info.nextN / 12) + '<em>' + (info.nextN === 12 ? "año juntos" : "años juntos") + '</em>' : info.nextN + '<em>' + (info.nextN === 1 ? "mes juntos" : "meses juntos") + '</em>';
+  } else {
+    big = "¡" + info.roundDay + " días juntos!";
+    text = info.roundDay + " días juntos. Gracias por cada uno. 💗";
+    bigHtml = info.roundDay + '<em>días juntos</em>';
+  }
+  $("fiestaBig").textContent = big;
+  $("fiestaSub").textContent = text;
+  // Corazones flotando
+  if (!hearts.childElementCount) {
+    const em = ["💗", "❤️", "💖", "🌸", "✨"];
+    for (let i = 0; i < 16; i++) {
+      const s = document.createElement("span");
+      s.textContent = em[i % em.length];
+      s.style.left = Math.round(Math.random() * 94) + "%";
+      s.style.fontSize = 16 + Math.round(Math.random() * 20) + "px";
+      s.style.animationDuration = 7 + Math.random() * 8 + "s";
+      s.style.animationDelay = -Math.random() * 12 + "s";
+      hearts.append(s);
+    }
+  }
+  // Pantalla de celebración: una vez por día
+  const key = "party-" + keyOf(now);
+  let seen = false;
+  try { seen = localStorage.getItem(key) === "1"; } catch (_) {}
+  if (!seen && !$("party").open) {
+    $("partyBig").innerHTML = bigHtml;
+    $("partyText").textContent = text;
+    $("partyHand").textContent = info.isMonthsary ? "hoy es nuestro día" : "un día para recordar";
+    try { $("party").showModal(); } catch (_) {}
+  }
+}
+$("partyClose").addEventListener("click", () => {
+  try { localStorage.setItem("party-" + keyOf(themeToday()), "1"); } catch (_) {}
+  $("party").close();
+});
+
+/* Hitos */
+function buildMilestones(now) {
+  const T = utc(now.getFullYear(), now.getMonth(), now.getDate());
+  const start = new Date(START.y, START.m, START.d);
+  const list = [];
+  for (let n = 1; n <= 36; n++) {
+    const d = monthsaryDate(n);
+    list.push({ date: d, title: n % 12 === 0 ? (n === 12 ? "1 año juntos 🎉" : n / 12 + " años juntos 🎉") : monthsLabel(n) + " juntos", sub: "Mesiversario" });
+  }
+  [100, 200, 300, 500, 1000].forEach((n) => {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + n);
+    list.push({ date: d, title: n + " días juntos", sub: "Hito de días" });
+  });
+  list.sort((a, b) => a.date - b.date);
+  return list.map((m) => ({ ...m, diff: dayDiff(T, utc(m.date.getFullYear(), m.date.getMonth(), m.date.getDate())) }));
+}
+function renderMilestones() {
+  const box = $("milestoneList");
+  box.textContent = "";
+  const list = buildMilestones(themeToday());
+  const nextIdx = list.findIndex((m) => m.diff >= 0);
+  list.forEach((m, i) => {
+    const li = document.createElement("li");
+    if (m.diff < 0) li.classList.add("done");
+    if (i === nextIdx) li.classList.add("next");
+    const dot = document.createElement("span"); dot.className = "dot"; dot.textContent = m.diff < 0 ? "✓" : "♥";
+    const txt = document.createElement("div");
+    const b = document.createElement("b"); b.textContent = m.title;
+    const s = document.createElement("small"); s.textContent = fmtDate(m.date);
+    txt.append(b, s);
+    const w = document.createElement("span"); w.className = "when";
+    w.textContent = m.diff === 0 ? "¡Hoy!" : m.diff === 1 ? "mañana" : m.diff > 0 ? "en " + m.diff + " días" : "";
+    li.append(dot, txt, w);
+    box.append(li);
+  });
+  return nextIdx;
+}
+$("together").addEventListener("click", () => {
+  const idx = renderMilestones();
+  $("milestones").showModal();
+  const el = $("milestoneList").children[Math.max(0, idx - 1)];
+  if (el) el.scrollIntoView({ block: "start" });
+});
+$("closeMilestones").addEventListener("click", () => $("milestones").close());
+
+/* ---------- Instalar como app ---------- */
+let installEvent = null;
+const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvent = e; if (!standalone) $("installBtn").hidden = false; });
+window.addEventListener("appinstalled", () => { $("installBtn").hidden = true; installEvent = null; });
+if (isIOS && !standalone) $("installBtn").hidden = false;
+$("installBtn").addEventListener("click", async () => {
+  if (installEvent) { installEvent.prompt(); await installEvent.userChoice.catch(() => {}); installEvent = null; $("installBtn").hidden = true; }
+  else $("installHelp").showModal();
+});
+$("installHelpClose").addEventListener("click", () => $("installHelp").close());
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(console.error));
+}
+
+/* Arranque */
+renderTogether();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) renderTogether(); });

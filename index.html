@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#1F1519">
+  <meta name="theme-color" content="#F7EFE8">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Pic of the Day">
@@ -11,41 +11,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 
-  <!-- ============ LOGIN ============ -->
-  <main id="login" class="screen">
-    <div class="login-bg" aria-hidden="true"></div>
-    <div class="login-shade" aria-hidden="true"></div>
-    <div class="login-wrap">
-      <header class="login-head">
-        <p class="hand">una foto por día</p>
-        <h1>Pic of<br><em>the Day</em></h1>
-      </header>
-      <form id="loginForm" class="login-card">
-        <label for="email">Email</label>
-        <input id="email" type="email" autocomplete="username" placeholder="tu@email.com" required>
-        <label for="password">Contraseña</label>
-        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
-        <p id="loginError" class="error" role="alert"></p>
-        <button type="submit" class="btn primary block">Entrar</button>
-      </form>
-    </div>
-  </main>
-
   <!-- ============ APP ============ -->
-  <div id="app" hidden>
+  <div id="app">
     <header class="top">
       <div class="brand">
         <span class="brand-dot" aria-hidden="true"></span>
         <span class="brand-name">Pic of the Day</span>
       </div>
-      <button id="logout" class="icon-btn" aria-label="Cerrar sesión" title="Cerrar sesión">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-      </button>
+      <button id="installBtn" class="install" type="button" hidden>Instalar app</button>
     </header>
+
+    <div id="hearts" class="hearts" aria-hidden="true"></div>
 
     <!-- HOY -->
     <section id="view-today" class="view" aria-label="Hoy">
@@ -53,6 +36,18 @@
         <p class="hand" id="todayWeekday"></p>
         <h2 id="todayDate"></h2>
       </div>
+
+      <div id="fiestaBanner" class="fiesta-banner" hidden>
+        <p id="fiestaBig" class="fiesta-big"></p>
+        <p id="fiestaSub" class="fiesta-sub"></p>
+      </div>
+
+      <button id="together" class="together" type="button" aria-label="Ver nuestros hitos">
+        <span class="t-label">Juntos desde el 26 de diciembre de 2025</span>
+        <span class="t-main"><b id="tDays">0</b> días</span>
+        <span id="tMonths" class="t-sub"></span>
+        <span id="tNext" class="t-next"></span>
+      </button>
 
       <div class="chips">
         <div class="chip"><b id="statStreak">0</b><span>días de racha</span></div>
@@ -66,6 +61,7 @@
         <h3>Últimos días</h3>
       </div>
       <div id="recent" class="recent"></div>
+      <p id="authError" class="empty" role="alert" hidden></p>
       <p id="empty" class="empty" hidden>Todavía no hay fotos.<br>Subí la primera del día. 💌</p>
     </section>
 
@@ -167,6 +163,38 @@
     </div>
   </dialog>
 
-  <script type="module" src="app.js"></script>
+  <!-- ============ Hitos ============ -->
+  <dialog id="milestones" class="viewer">
+    <div class="viewer-top">
+      <div>
+        <p class="hand">nuestro camino</p>
+        <h2>Hitos</h2>
+      </div>
+      <button id="closeMilestones" class="icon-btn" aria-label="Cerrar" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <ol id="milestoneList" class="m-list"></ol>
+  </dialog>
+
+  <!-- ============ Celebración ============ -->
+  <dialog id="party" class="party">
+    <div class="party-inner">
+      <p class="hand" id="partyHand">hoy es nuestro día</p>
+      <p id="partyBig" class="party-big"></p>
+      <p id="partyText" class="party-text"></p>
+      <button id="partyClose" class="btn primary" type="button">Seguir 💗</button>
+    </div>
+  </dialog>
+
+  <!-- ============ Cómo instalar (iPhone) ============ -->
+  <dialog id="installHelp" class="sheet">
+    <div class="grab" aria-hidden="true"></div>
+    <h2>Instalar la app</h2>
+    <p class="small" style="font-size:15px;line-height:1.5;color:var(--ink)">En el iPhone: tocá el botón <b>Compartir</b> (el cuadrado con la flecha) en Safari y elegí <b>“Agregar a pantalla de inicio”</b>.</p>
+    <div class="row"><button id="installHelpClose" class="btn primary" type="button">Entendido</button></div>
+  </dialog>
+
+  <script type="module" src="app.js?v=5"></script>
 </body>
 </html>
