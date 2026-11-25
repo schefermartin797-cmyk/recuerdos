@@ -600,10 +600,17 @@ let installEvent = null;
 const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvent = e; if (!standalone) $("installBtn").hidden = false; });
-window.addEventListener("appinstalled", () => { $("installBtn").hidden = true; installEvent = null; });
+function avisar(msg) {
+  const t = document.createElement("div");
+  t.className = "aviso"; t.textContent = msg; t.setAttribute("role", "status");
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add("fuera"), 4500);
+  setTimeout(() => t.remove(), 5200);
+}
+window.addEventListener("appinstalled", () => { $("installBtn").hidden = true; installEvent = null; avisar("✅ ¡App instalada! Ya la tenés en tu pantalla de inicio 💕"); });
 if (isIOS && !standalone) $("installBtn").hidden = false;
 $("installBtn").addEventListener("click", async () => {
-  if (installEvent) { installEvent.prompt(); await installEvent.userChoice.catch(() => {}); installEvent = null; $("installBtn").hidden = true; }
+  if (installEvent) { installEvent.prompt(); const r = await installEvent.userChoice.catch(() => null); if (r && r.outcome === "accepted") avisar("⏳ Instalando… te aviso cuando termine"); installEvent = null; $("installBtn").hidden = true; }
   else $("installHelp").showModal();
 });
 $("installHelpClose").addEventListener("click", () => $("installHelp").close());
