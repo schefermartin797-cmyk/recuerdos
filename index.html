@@ -14,7 +14,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
 
@@ -57,7 +57,14 @@
 
       <div id="todayStage" class="stage"></div>
 
-      <div class="section-title">
+      <div id="memoriesWrap" hidden>
+        <div class="section-title">
+          <h3>Un día como hoy</h3>
+        </div>
+        <div id="memories" class="recent"></div>
+      </div>
+
+      <div class="section-title" id="recentTitle">
         <h3>Últimos días</h3>
       </div>
       <div id="recent" class="recent"></div>
@@ -100,10 +107,19 @@
           <div id="recapBar" class="recap-bar" hidden><i id="recapBarFill"></i></div>
         </div>
       </div>
+      <div class="recap-opts">
+        <div id="recapPeriod" class="seg" role="group" aria-label="Período del video">
+          <button type="button" data-p="month">Este mes</button>
+          <button type="button" data-p="year" class="active">Este año</button>
+          <button type="button" data-p="all">Todo</button>
+        </div>
+        <label class="music"><input type="checkbox" id="recapMusic" checked> Con música 🎵</label>
+      </div>
       <p id="recapStatus" class="small center" role="status"></p>
       <div class="row center">
         <button id="recapPlay" class="btn primary" type="button">Crear video</button>
         <a id="recapDownload" class="btn ghost" hidden download="pic-of-the-day.webm">Descargar</a>
+        <button id="recapShare" class="btn ghost" type="button" hidden>Compartir</button>
       </div>
     </section>
 
@@ -195,6 +211,6 @@
     <div class="row"><button id="installHelpClose" class="btn primary" type="button">Entendido</button></div>
   </dialog>
 
-  <script type="module" src="app.js?v=5"></script>
+  <script type="module" src="app.js?v=7"></script>
 </body>
 </html>

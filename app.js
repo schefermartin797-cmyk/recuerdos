@@ -144,7 +144,39 @@ function renderToday() {
     recent.append(b);
   });
   $("empty").hidden = photos.length > 0;
-  recent.parentElement.querySelector(".section-title").hidden = keys.length === 0;
+  $("recentTitle").hidden = keys.length === 0;
+  renderMemories();
+}
+
+/* ---------- Un día como hoy ---------- */
+function renderMemories() {
+  const box = $("memories"), wrap = $("memoriesWrap");
+  box.textContent = "";
+  const now = new Date(), tk = todayKey();
+  const items = [];
+  for (const k of byDay.keys()) {
+    if (k >= tk) continue;
+    const d = fromKey(k);
+    if (d.getDate() !== now.getDate()) continue;          // mismo número de día
+    const months = (now.getFullYear() - d.getFullYear()) * 12 + now.getMonth() - d.getMonth();
+    if (months < 1) continue;
+    items.push({ k, months, yearly: months % 12 === 0 });
+  }
+  // primero los aniversarios de año, después los meses más cercanos
+  items.sort((a, b) => (b.yearly - a.yearly) || (a.months - b.months));
+  items.slice(0, 8).forEach(({ k, months, yearly }) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "mini memory";
+    b.style.setProperty("--rot", rotFor(k) + "deg");
+    const img = document.createElement("img"); img.src = byDay.get(k)[0].data; img.alt = ""; img.loading = "lazy";
+    const label = yearly
+      ? "Hace " + plural(months / 12, "año", "años")
+      : "Hace " + plural(months, "mes", "meses");
+    const s = document.createElement("span"); s.textContent = label;
+    b.append(img, s);
+    b.addEventListener("click", () => showDay(k));
+    box.append(b);
+  });
+  wrap.hidden = items.length === 0;
 }
 
 function renderCalendar() {
@@ -283,17 +315,31 @@ async function compress(file) {
 const canvas = $("recapCanvas");
 const ctx = canvas.getContext("2d");
 const W = canvas.width, H = canvas.height;
-const SLIDE_MS = 1700, FADE_MS = 450, INTRO_MS = 2200, OUTRO_MS = 2600;
+const INTRO_MS = 2200, OUTRO_MS = 2600;
+let SLIDE_MS = 1700, FADE_MS = 450;
+let recapPeriod = "year";   // year | month | all
+let recapCleanup = null;
 let recapRun = 0;           // id de la ejecución actual (para cancelar)
 let recorder = null;
 let lastUrl = null;
 
+function recapKeys() {
+  const now = new Date();
+  const pre = recapPeriod === "year" ? String(now.getFullYear())
+    : recapPeriod === "month" ? now.getFullYear() + "-" + pad(now.getMonth() + 1) : "";
+  return [...byDay.keys()].filter((k) => k.startsWith(pre)).sort();
+}
+function recapLabel() {
+  const now = new Date();
+  return recapPeriod === "year" ? "en " + now.getFullYear() : recapPeriod === "month" ? "en " + MESES[now.getMonth()] : "juntos";
+}
 function renderRecapTitle() {
-  const y = new Date().getFullYear();
-  const n = [...byDay.keys()].filter((k) => k.startsWith(String(y))).length;
-  $("recapTitle").textContent = "Tu " + y + " en fotos";
+  const now = new Date();
+  const n = recapKeys().length;
+  $("recapTitle").textContent = recapPeriod === "year" ? "Tu " + now.getFullYear() + " en fotos"
+    : recapPeriod === "month" ? "Tu " + MESES[now.getMonth()] + " en fotos" : "Nuestra historia en fotos";
   if (!recapRun) {
-    $("recapStatus").textContent = n ? n + (n === 1 ? " día" : " días") + " con foto este año" : "Subí fotos para armar el video";
+    $("recapStatus").textContent = n ? n + (n === 1 ? " día" : " días") + " con foto" : "Subí fotos para armar el video";
     drawCover();
   }
 }
@@ -325,31 +371,79 @@ function drawPhoto(img, p, t, alpha) {
   const x = (W - w) / 2 + (t - 0.5) * 26, y = (H - h) / 2 - (t - 0.5) * 20;
   ctx.globalAlpha = alpha;
   ctx.drawImage(img, x, y, w, h);
+  const top = ctx.createLinearGradient(0, 0, 0, H * 0.18);
+  top.addColorStop(0, "rgba(0,0,0,.45)"); top.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = top; ctx.fillRect(0, 0, W, H * 0.18);
   const sh = ctx.createLinearGradient(0, H * 0.62, 0, H);
   sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0,.72)");
   ctx.fillStyle = sh; ctx.fillRect(0, H * 0.62, W, H * 0.38);
+  // contador de días juntos
+  const dj = togetherInfo(fromKey(p.day)).days;
+  if (dj >= 0) {
+    ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.font = "600 30px 'DM Sans', sans-serif";
+    ctx.fillText("♥ Día " + dj + " juntos", 38, 70);
+  }
   ctx.textAlign = "left"; ctx.fillStyle = "#fff";
   ctx.font = "italic 500 58px Fraunces, serif";
   const d = fromKey(p.day);
-  ctx.fillText(d.getDate() + " de " + MESES[d.getMonth()], 38, H - 112);
+  ctx.fillText(d.getDate() + " de " + MESES[d.getMonth()] + (recapPeriod === "all" ? " " + d.getFullYear() : ""), 38, H - 112);
   ctx.font = "500 40px Caveat, cursive"; ctx.fillStyle = "#FFD3C7";
   if (p.caption) ctx.fillText(p.caption, 38, H - 62);
   ctx.globalAlpha = 1;
 }
 
-function drawOutro(t, n, year) {
+function drawOutro(t, n, label) {
   drawCover();
   ctx.fillStyle = "rgba(31,21,25,.55)"; ctx.fillRect(0, 0, W, H);
   ctx.textAlign = "center"; ctx.fillStyle = "#fff";
   ctx.globalAlpha = Math.min(1, t * 3);
   ctx.font = "600 150px Fraunces, serif"; ctx.fillText(String(n), W / 2, H / 2 - 20);
   ctx.font = "italic 400 44px Fraunces, serif"; ctx.fillText(n === 1 ? "día guardado" : "días guardados", W / 2, H / 2 + 44);
-  ctx.fillStyle = "#F2A38F"; ctx.font = "500 38px Caveat, cursive"; ctx.fillText("en " + year + " · y seguimos 💌", W / 2, H / 2 + 110);
+  ctx.fillStyle = "#F2A38F"; ctx.font = "500 38px Caveat, cursive"; ctx.fillText(label + " · y seguimos 💌", W / 2, H / 2 + 110);
   ctx.globalAlpha = 1;
 }
 
+/* Música suave generada en el momento (sin archivos): arpegio sobre 4 acordes */
+function makeMusic(totalMs) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  try {
+    const ac = new AC();
+    if (ac.resume) ac.resume().catch(() => {});
+    const dest = ac.createMediaStreamDestination();
+    const master = ac.createGain();
+    const t0 = ac.currentTime + 0.05, dur = totalMs / 1000;
+    master.gain.setValueAtTime(0.0001, t0);
+    master.gain.linearRampToValueAtTime(0.5, t0 + 1.5);
+    master.gain.setValueAtTime(0.5, t0 + Math.max(1.5, dur - 2.2));
+    master.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+    master.connect(dest);
+    const chords = [[261.63, 329.63, 392.0, 493.88], [220.0, 261.63, 329.63, 392.0], [174.61, 261.63, 329.63, 440.0], [196.0, 246.94, 293.66, 392.0]];
+    const tone = (f, at, len, vol, type) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.linearRampToValueAtTime(vol, at + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+      o.connect(g); g.connect(master);
+      o.start(at); o.stop(at + len + 0.05);
+    };
+    const STEP = 0.5;
+    for (let i = 0; i * STEP < dur; i++) {
+      const at = t0 + i * STEP, ch = chords[Math.floor(i / 8) % 4];
+      const f = ch[i % 4] * (i % 8 >= 4 ? 2 : 1);
+      tone(f, at, 1.3, 0.16, "triangle");
+      if (i % 8 === 0) tone(ch[0] / 2, at, 4.2, 0.22, "sine");
+    }
+    return { stream: dest.stream, close: () => { try { ac.close(); } catch (_) {} } };
+  } catch (e) { console.error(e); return null; }
+}
+
+function runCleanup() { if (recapCleanup) { try { recapCleanup(); } catch (_) {} recapCleanup = null; } }
+
 function stopRecap() {
   recapRun = 0;
+  runCleanup();
   if (recorder && recorder.state !== "inactive") { try { recorder.onstop = null; recorder.stop(); } catch (_) {} }
   recorder = null;
   $("recapBar").hidden = true;
@@ -358,39 +452,78 @@ function stopRecap() {
   $("recapIdle").hidden = false;
   $("recapVideo").pause();
   $("recapVideo").hidden = true;
+  $("recapDownload").hidden = true;
+  $("recapShare").hidden = true;
   canvas.hidden = false;
   renderRecapTitle();
 }
 
+/* Selector de período */
+document.querySelectorAll("#recapPeriod button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("#recapPeriod button").forEach((x) => x.classList.toggle("active", x === b));
+  recapPeriod = b.dataset.p;
+  stopRecap();
+}));
+
 $("recapPlay").addEventListener("click", async () => {
-  const year = new Date().getFullYear();
-  const keys = [...byDay.keys()].filter((k) => k.startsWith(String(year))).sort();
-  if (!keys.length) { $("recapStatus").textContent = "Todavía no hay fotos de este año."; return; }
+  if (recapRun) { stopRecap(); return; }            // el botón también sirve para cancelar
+  const keys = recapKeys();
+  if (!keys.length) { $("recapStatus").textContent = "Todavía no hay fotos en este período."; return; }
 
   if (lastUrl) { URL.revokeObjectURL(lastUrl); lastUrl = null; }
-  $("recapDownload").hidden = true;
+  $("recapDownload").hidden = true; $("recapShare").hidden = true;
   $("recapVideo").hidden = true; $("recapVideo").removeAttribute("src");
   canvas.hidden = false; $("recapIdle").hidden = true; $("recapBar").hidden = false;
-  $("recapPlay").disabled = true; $("recapPlay").textContent = "Creando…";
+  $("recapPlay").textContent = "Cancelar";
 
   const run = ++recapRun;
   const slides = keys.map((k) => byDay.get(k)[0]);
+  // con muchas fotos, cada una dura menos para que el video no sea eterno (máx. ~60 s de fotos)
+  SLIDE_MS = Math.max(900, Math.min(1700, Math.round(60000 / slides.length)));
+  FADE_MS = Math.min(450, Math.round(SLIDE_MS / 3));
   const total = INTRO_MS + slides.length * SLIDE_MS + OUTRO_MS;
+
+  // música (se crea ya, dentro del toque del usuario)
+  const music = $("recapMusic").checked ? makeMusic(total) : null;
+  // que la pantalla no se apague mientras se arma
+  let lock = null;
+  try { if (navigator.wakeLock) lock = await navigator.wakeLock.request("screen"); } catch (_) {}
+  recapCleanup = () => { if (music) music.close(); if (lock) lock.release().catch(() => {}); };
+
+  // las tipografías tienen que estar cargadas antes de dibujar en el canvas
+  try {
+    await Promise.all([
+      document.fonts.load("600 40px Fraunces"), document.fonts.load("italic 400 40px Fraunces"),
+      document.fonts.load("500 40px Caveat"), document.fonts.load("600 30px 'DM Sans'")
+    ]);
+  } catch (_) {}
+  if (run !== recapRun) return;
 
   // Grabación (si el navegador la soporta)
   let chunks = [];
   const canRecord = typeof MediaRecorder !== "undefined" && canvas.captureStream;
   let mime = "";
   if (canRecord) {
-    mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"].find((m) => MediaRecorder.isTypeSupported(m)) || "";
+    mime = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"].find((m) => MediaRecorder.isTypeSupported(m)) || "";
     try {
-      recorder = new MediaRecorder(canvas.captureStream(30), mime ? { mimeType: mime, videoBitsPerSecond: 4_000_000 } : undefined);
+      const stream = canvas.captureStream(30);
+      if (music) music.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
+      recorder = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 4_000_000 } : undefined);
       recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
       recorder.start(250);
     } catch (e) { console.error(e); recorder = null; }
   }
 
   $("recapStatus").textContent = "Armando tu video… no cierres esta pantalla";
+
+  // Carga de fotos por adelantado para que no haya tirones
+  const imgCache = new Map();
+  const load = (i) => {
+    if (i < 0 || i >= slides.length) return null;
+    if (!imgCache.has(i)) imgCache.set(i, roundImg(slides[i].data));
+    return imgCache.get(i);
+  };
+  load(0); load(1);
 
   let cur = null, prev = null, curIdx = -1;
   const t0 = performance.now();
@@ -406,7 +539,8 @@ $("recapPlay").addEventListener("click", async () => {
       const idx = Math.floor((el - INTRO_MS) / SLIDE_MS);
       if (idx !== curIdx) {
         prev = cur; curIdx = idx;
-        cur = await roundImg(slides[idx].data);
+        cur = await load(idx);
+        load(idx + 1); load(idx + 2); imgCache.delete(idx - 2);
         if (run !== recapRun) return;
       }
       const t = ((el - INTRO_MS) % SLIDE_MS) / SLIDE_MS;
@@ -417,7 +551,7 @@ $("recapPlay").addEventListener("click", async () => {
         drawPhoto(cur, slides[idx], t, 1);
       }
     } else if (el < total) {
-      drawOutro((el - INTRO_MS - slides.length * SLIDE_MS) / OUTRO_MS, keys.length, year);
+      drawOutro((el - INTRO_MS - slides.length * SLIDE_MS) / OUTRO_MS, keys.length, recapLabel());
     } else {
       return finish(run, chunks, mime);
     }
@@ -428,16 +562,27 @@ $("recapPlay").addEventListener("click", async () => {
 
 function finish(run, chunks, mime) {
   if (run !== recapRun) return;
+  runCleanup();
   const done = (blob) => {
+    if (run !== recapRun) return;
     $("recapBar").hidden = true;
-    $("recapPlay").disabled = false; $("recapPlay").textContent = "Ver de nuevo";
+    $("recapPlay").disabled = false; $("recapPlay").textContent = "Crear de nuevo";
     if (blob) {
       lastUrl = URL.createObjectURL(blob);
       const v = $("recapVideo");
       v.src = lastUrl; v.hidden = false; canvas.hidden = true; v.play().catch(() => {});
+      const name = "pic-of-the-day-" + new Date().getFullYear() + (blob.type.includes("mp4") ? ".mp4" : ".webm");
       const a = $("recapDownload");
-      a.href = lastUrl; a.download = "pic-of-the-day-" + new Date().getFullYear() + (blob.type.includes("mp4") ? ".mp4" : ".webm");
-      a.hidden = false;
+      a.href = lastUrl; a.download = name; a.hidden = false;
+      // compartir directo (WhatsApp, etc.) si el celular lo permite
+      const sh = $("recapShare");
+      try {
+        const file = new File([blob], name, { type: blob.type });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          sh.hidden = false;
+          sh.onclick = () => navigator.share({ files: [file], title: "Pic of the Day" }).catch(() => {});
+        }
+      } catch (_) {}
       $("recapStatus").textContent = "¡Listo! Podés descargarlo y compartirlo.";
     } else {
       $("recapStatus").textContent = "Tu navegador no puede guardar el video, pero lo viste en pantalla.";
@@ -445,7 +590,8 @@ function finish(run, chunks, mime) {
     recapRun = 0;
   };
   if (recorder && recorder.state !== "inactive") {
-    recorder.onstop = () => done(new Blob(chunks, { type: mime || "video/webm" }));
+    const type = (mime || "video/webm").split(";")[0];
+    recorder.onstop = () => done(new Blob(chunks, { type }));
     recorder.stop();
     recorder = null;
   } else done(null);
@@ -600,10 +746,17 @@ let installEvent = null;
 const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvent = e; if (!standalone) $("installBtn").hidden = false; });
-window.addEventListener("appinstalled", () => { $("installBtn").hidden = true; installEvent = null; });
+function avisar(msg) {
+  const t = document.createElement("div");
+  t.className = "aviso"; t.textContent = msg; t.setAttribute("role", "status");
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add("fuera"), 4500);
+  setTimeout(() => t.remove(), 5200);
+}
+window.addEventListener("appinstalled", () => { $("installBtn").hidden = true; installEvent = null; avisar("✅ ¡App instalada! Ya la tenés en tu pantalla de inicio 💕"); });
 if (isIOS && !standalone) $("installBtn").hidden = false;
 $("installBtn").addEventListener("click", async () => {
-  if (installEvent) { installEvent.prompt(); await installEvent.userChoice.catch(() => {}); installEvent = null; $("installBtn").hidden = true; }
+  if (installEvent) { installEvent.prompt(); const r = await installEvent.userChoice.catch(() => null); if (r && r.outcome === "accepted") avisar("⏳ Instalando… te aviso cuando termine"); installEvent = null; $("installBtn").hidden = true; }
   else $("installHelp").showModal();
 });
 $("installHelpClose").addEventListener("click", () => $("installHelp").close());

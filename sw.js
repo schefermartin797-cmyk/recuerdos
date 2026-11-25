@@ -1,6 +1,6 @@
 // Service worker: primero la red (para que siempre veas la última versión) y, sin conexión, lo guardado.
-const CACHE = "pod-v5";
-const SHELL = ["./", "index.html", "styles.css", "app.js", "firebase-config.js", "manifest.webmanifest", "icon-192.png"];
+const CACHE = "pod-v8";
+const SHELL = ["./", "index.html", "styles.css", "app.js", "firebase-config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}));
